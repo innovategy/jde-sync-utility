@@ -24,7 +24,7 @@ export async function getAllVendors(): Promise<any[]> {
   // Example: fetch vendor address numbers and names
   const params = new URLSearchParams({
     '$filter': 'F0101.AT1 EQ V', // V for Vendors
-    '$limit': '100',
+    '$limit': '10',
     '$token': jde.getToken()!
   });
   try {
