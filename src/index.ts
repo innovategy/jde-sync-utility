@@ -7,15 +7,75 @@ import 'dotenv/config';
 import { info, error } from './utils/logger';
 // Import the JDE connection service (handles authentication, tokens, etc.)
 import { JDEConnectionService } from './services/JDEConnectionService';
-// Import the vendors modules (fetches vendor data from JDE)
-import { getAllVendors } from './modules/vendors';
-import { buildVendorsMaster } from './modules/vendorsMaster';
+// Import modules for different JDE tables
+import { getAddressBookRecords } from './modules/addressBook';
+import { getContactInfoRecords } from './modules/contactInfo';
+import { getMailingAddressRecords } from './modules/mailingAddress';
+import { getVendorMasterRecords } from './modules/vendorMaster';
+import { getWhosWhoRecords } from './modules/whosWho';
+import * as fs from 'fs';
+
+/**
+ * Interface for a complete vendor record with all related data
+ */
+interface CompleteVendorRecord {
+  addressNumber: string;
+  vendorMaster: any[];
+  addressBook: any[];
+  contactInfo: any[];
+  mailingAddress: any[];
+  whosWho: any[];
+}
+
+/**
+ * Fetches a single vendor record by address number and all related data from different JDE tables
+ *
+ * @param addressNumber The vendor's address number to fetch
+ * @returns A complete vendor record with all related data
+ */
+async function getCompleteVendorRecord(
+  addressNumber: string,
+): Promise<CompleteVendorRecord> {
+  info(`Fetching complete vendor record for address number: ${addressNumber}`);
+
+  // Fetch data from all relevant tables in parallel for efficiency
+  const [vendorMaster, addressBook, contactInfo, mailingAddress, whosWho] =
+    await Promise.all([
+      getVendorMasterRecords(addressNumber),
+      getAddressBookRecords(addressNumber),
+      getContactInfoRecords(addressNumber),
+      getMailingAddressRecords(addressNumber),
+      getWhosWhoRecords(addressNumber),
+    ]);
+
+  // Combine all data into a single comprehensive record
+  const completeRecord: CompleteVendorRecord = {
+    addressNumber,
+    vendorMaster,
+    addressBook,
+    contactInfo,
+    mailingAddress,
+    whosWho,
+  };
+
+  // Save the complete record to a JSON file for inspection
+  fs.writeFileSync(
+    `complete_vendor_${addressNumber}.json`,
+    JSON.stringify(completeRecord, null, 2),
+    'utf-8',
+  );
+
+  info(
+    `Complete vendor record for address number ${addressNumber} saved to complete_vendor_${addressNumber}.json`,
+  );
+
+  return completeRecord;
+}
 
 /**
  * Main entry point for the JDE Sync Utility.
  * - Validates connection to the JDE AIS server
- * - Fetches all vendor records (F0101 table)
- * - Demonstrates field metadata utility (jargonservice)
+ * - Fetches a single vendor record with all related data
  */
 async function main() {
   info('Starting JDE Sync Utility...');
@@ -31,15 +91,20 @@ async function main() {
   }
 
   try {
-    // Fetch all vendors (AT1 = 'V') from F0101 using the vendors module
-    info('Fetching basic vendor details...');
-    await getAllVendors();
-    info('Basic vendor details saved to vendors.json');
+    // Define the address number to fetch (this could come from command line args or config)
+    const addressNumber = process.env.VENDOR_ADDRESS_NUMBER || '4242'; // Default or from env var
 
-    // Build comprehensive vendor master records
-    info('Building comprehensive vendor master records...');
-    await buildVendorsMaster();
-    info('Comprehensive vendor master records saved to vendors_master.json');
+    // Fetch complete vendor record with all related data
+    info(`Fetching vendor with address number: ${addressNumber}`);
+    const completeVendor = await getCompleteVendorRecord(addressNumber);
+
+    // Log a summary of the data retrieved
+    info('Vendor data retrieval complete. Summary:');
+    info(`- Vendor Master records: ${completeVendor.vendorMaster.length}`);
+    info(`- Address Book records: ${completeVendor.addressBook.length}`);
+    info(`- Contact Info records: ${completeVendor.contactInfo.length}`);
+    info(`- Mailing Address records: ${completeVendor.mailingAddress.length}`);
+    info(`- Who's Who records: ${completeVendor.whosWho.length}`);
   } catch (err) {
     error(
       'Error fetching vendor data:',
