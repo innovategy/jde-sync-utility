@@ -6,7 +6,7 @@ import { loadF0111FieldDetails } from '../utils/f0111Excel';
 import { loadF01151FieldDetails } from '../utils/f01151Excel';
 import { info } from '../utils/logger';
 import * as fs from 'fs';
-import path from 'path';
+import * as path from 'path';
 import { Workbook } from 'exceljs';
 
 // Define interfaces for our data structures
