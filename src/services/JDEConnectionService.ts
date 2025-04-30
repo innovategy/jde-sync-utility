@@ -36,7 +36,7 @@ export class JDEConnectionService {
     // Pre-configured Axios instance for all requests
     this.axiosInstance = axios.create({
       httpsAgent: this.httpsAgent,
-      baseURL: this.baseUrl
+      baseURL: this.baseUrl,
     });
   }
 
@@ -51,7 +51,7 @@ export class JDEConnectionService {
         username: this.username,
         password: this.password,
         environment: this.environment,
-        role: this.role
+        role: this.role,
       });
 
       // Extract and store the session token
@@ -77,7 +77,7 @@ export class JDEConnectionService {
 
       // GET /v2/defaultconfig with the stored token
       const response = await this.axiosInstance.get('/v2/defaultconfig', {
-        headers: { Authorization: `Bearer ${this.token}` }
+        headers: { Authorization: `Bearer ${this.token}` },
       });
 
       info('Connection validated. AIS Version:', response.data.aisVersion);

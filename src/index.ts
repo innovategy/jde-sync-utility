@@ -9,8 +9,6 @@ import { info, error } from './utils/logger';
 import { JDEConnectionService } from './services/JDEConnectionService';
 // Import the vendors module (fetches vendor data from JDE)
 import { getAllVendors } from './modules/vendors';
-// Import the field metadata utility (checks UDC/enum info for fields)
-import { checkFieldMetadata } from './utils/fieldMetadata';
 
 /**
  * Main entry point for the JDE Sync Utility.
@@ -34,10 +32,6 @@ async function main() {
   // Fetch all vendors (AT1 = 'V') from F0101 using the vendors module
   const vendors = await getAllVendors();
   info('Vendors:', vendors);
-
-  // Demo: Check field metadata for F0101.AN8 (address number)
-  // This calls the JDE jargonservice to see if the field has UDC/enum mapping
-  await checkFieldMetadata('F0101', 'AN8');
 }
 
 // Run the main function and catch any unhandled errors
