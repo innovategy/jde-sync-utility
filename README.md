@@ -18,31 +18,28 @@ A modular, extensible Node.js/TypeScript utility for interacting with JD Edwards
 
 ```
 ├── src/
-│   ├── index.ts                # Entry point: connection validation, demo usage
+│   ├── index.ts                # Entry point: validates connection, runs batch sync
 │   ├── services/
 │   │   └── JDEConnectionService.ts  # Handles AIS authentication and token
 │   ├── modules/
-│   │   ├── vendors.ts          # Fetches all vendor details from F0101
-│   │   └── vendorsMaster.ts    # Builds comprehensive vendor master records
+│   │   ├── addressBook.ts      # Fetches Address Book data (F0101)
+│   │   ├── contactInfo.ts      # Fetches Who's Who data (F0111)
+│   │   ├── mailingAddress.ts   # Fetches Address data (F0116)
+│   │   └── vendors.ts          # Coordinates fetching vendor/supplier data (F0401) & related info
 │   └── utils/
 │       ├── logger.ts           # Logger utility
-│       ├── fieldMetadata.ts    # Utility to fetch field metadata/UDC info
 │       ├── f0101Excel.ts       # Loads F0101 field details from Excel
 │       ├── f0111Excel.ts       # Loads F0111 field details from Excel
 │       ├── f0115Excel.ts       # Loads F0115 field details from Excel
-│       ├── f01151Excel.ts      # Loads F01151 field details from Excel
 │       ├── f0116Excel.ts       # Loads F0116 field details from Excel
-│       └── f0401Excel.ts       # Loads F0401 field details from Excel
 ├── data/                       # Contains Excel files with field details
 │   ├── F0101.xlsx              # Address Book field details
 │   ├── F0111.xlsx              # Who's Who field details
 │   ├── F0115.xlsx              # Phone Numbers field details
-│   ├── F01151.xlsx             # Electronic Addresses field details
-│   ├── F0116.xlsx              # Addresses field details
-│   └── F0401.xlsx              # Supplier Master field details
+│   └── F0116.xlsx              # Addresses field details
 ├── .env                        # AIS connection configuration
 ├── vendors.json                # Output file with basic vendor details
-├── vendors_master.json         # Output file with comprehensive vendor details
+├── vendors-enhanced.json       # Output file with comprehensive vendor details
 └── README.md                   # This file
 ```
 
@@ -74,7 +71,7 @@ Build the project:
 npm run build
 ```
 
-Run the main script:
+Run the main sync script:
 ```bash
 npm run sync
 ```
@@ -84,36 +81,37 @@ Or for development (using ts-node):
 npm run sync:dev
 ```
 
-The script will:
-- Validate connection to the AIS server
-- Fetch basic vendor details from F0101 and save to `vendors.json`
-- Build comprehensive vendor master records with data from multiple tables and save to `vendors_master.json`
+The script (`src/index.ts`) will:
+- Validate the connection to the AIS server using `JDEConnectionService`.
+- Execute the `buildVendorsJson` function from `src/modules/vendors.ts`.
+- This function fetches data from multiple JDE tables (coordinated via the modules) and generates two output files:
+    - `vendors.json`
+    - `vendors-enhanced.json`
 
 ### Output Files
 
 After running the script, you'll get two JSON files in the project root:
 
-1. **vendors.json**: Contains basic vendor information from the F0101 table, enriched with field metadata.
+1.  **vendors.json**: Contains a basic list or summary of vendors processed (details depend on implementation in `vendors.ts`).
 
-2. **vendors_master.json**: Contains comprehensive vendor master records that combine data from multiple tables:
-   - F0101 (Address Book)
-   - F0111 (Who's Who)
-   - F0115 (Phone Numbers)
-   - F01151 (Electronic Addresses)
-   - F0116 (Addresses)
-   - F0401 (Supplier Master)
+2.  **vendors-enhanced.json**: Contains comprehensive vendor records that combine data from multiple related tables:
+    - Address Book (F0101 - via `addressBook.ts`)
+    - Who's Who / Contacts (F0111 - via `contactInfo.ts`)
+    - Phone Numbers (F0115 - via `vendors.ts` likely uses `f0115Excel.ts`)
+    - Addresses (F0116 - via `mailingAddress.ts`)
+    - Supplier Master (F0401 - via `vendors.ts`)
 
-   Each record is enriched with field metadata from the corresponding Excel files in the `data/` folder.
+    Each record is enriched with field metadata from the corresponding Excel files (`F0101.xlsx`, `F0111.xlsx`, `F0115.xlsx`, `F0116.xlsx`) located in the `data/` folder.
 
 ---
 
 ## Extending the Utility
 
-- **Add new modules**: Create a new file in `src/modules/` (e.g., `invoices.ts`) and export a function for your business logic.
+- **Add new modules**: Create a new file in `src/modules/` (e.g., `invoices.ts`) and export functions for your business logic.
 - **Use the connection service**: Import and instantiate `JDEConnectionService` for token/auth.
 - **Leverage the logger**: Use `info`, `error`, and `debug` from `logger.ts` for consistent logs.
-- **Add new Excel loaders**: Follow the pattern in the existing Excel utility files to load field details for additional tables.
-- **Extend the data folder**: Add new Excel files with field details for additional tables you want to work with.
+- **Add new Excel loaders**: If working with new tables, create corresponding utility files in `src/utils/` (e.g., `fXXXXExcel.ts`) following the existing pattern to load field details.
+- **Extend the data folder**: Add new Excel files (e.g., `FXXXX.xlsx`) with field details for the new tables.
 
 ---
 
@@ -127,12 +125,6 @@ import { loadF0101FieldDetails } from './utils/f0101Excel';
 
 // Load field details from Excel
 const fieldDetails = await loadF0101FieldDetails();
-
-// Use field details to enrich data
-const enrichedData = {
-  value: vendorData.AN8,
-  details: fieldDetails['F0101_AN8'] || null
-};
 ```
 
 - Each Excel file should contain columns for field name, description, data type, and size
@@ -142,10 +134,10 @@ const enrichedData = {
 ---
 
 ## Troubleshooting
-- **500 error from /jargonservice**: Confirm endpoint path, token, and permissions. Some setups require extra headers or different endpoint versions (e.g., `/jderest/v2/jargonservice`).
-- **Vendor fetch returns partial data**: Adjust `$limit` in `vendors.ts` or add pagination logic in your module.
-- **Missing Excel files**: Ensure all required Excel files are present in the `data/` folder. The utility expects specific Excel files with field details for each table.
-- **Type errors**: If you encounter TypeScript errors, ensure you're using the correct import syntax (e.g., `import * as fs from 'fs'` instead of `import fs from 'fs'`).
+- **500 error from JDE**: Confirm endpoint paths, tokens, roles, and permissions in your `.env` and JDE setup. Check `JDEConnectionService.ts` for specific endpoints used.
+- **Data fetch returns partial data**: Check the logic within the relevant module in `src/modules/` for limits or pagination needs.
+- **Missing Excel files**: Ensure required Excel files (`F0101.xlsx`, `F0111.xlsx`, etc.) are present in the `data/` folder and match the loaders in `src/utils/`.
+- **Type errors**: Run `npm run build` or check your TS configuration (`tsconfig.json`).
 
 ---
 

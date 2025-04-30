@@ -22,13 +22,13 @@ export async function loadF0111FieldDetails(): Promise<
     return {};
   }
   await workbook.xlsx.readFile(filePath);
-  info(
+  /*info(
     'Excel sheet names:',
     workbook.worksheets.map((ws) => ws.name),
-  );
+  );*/
   const worksheet = workbook.worksheets[0];
   const headerRow = worksheet.getRow(1);
-  info('Excel header row values:', headerRow.values);
+  //info('Excel header row values:', headerRow.values);
   let rowCount = 0;
   const fieldMap: Record<string, F0111FieldDetail> = {};
   const headers: string[] = Array.isArray(headerRow.values)
@@ -72,7 +72,7 @@ export async function loadF0111FieldDetails(): Promise<
       ...rowObj,
     };
   });
-  info('Excel data row count:', rowCount);
-  info('Sample fieldDetails keys:', Object.keys(fieldMap).slice(0, 5));
+  //info('Excel data row count:', rowCount);
+  //info('Sample fieldDetails keys:', Object.keys(fieldMap).slice(0, 5));
   return fieldMap;
 }
