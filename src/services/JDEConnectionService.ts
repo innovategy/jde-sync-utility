@@ -1,8 +1,19 @@
 // src/services/JDEConnectionService.ts
 
-import axios, { AxiosInstance } from 'axios';
-import https from 'https';
+import axios from 'axios';
+import * as https from 'https';
 import { info, error } from '../utils/logger';
+
+// Define a type for the response data structure
+interface TokenResponse {
+  userInfo?: {
+    token?: string;
+  };
+}
+
+interface AISConfigResponse {
+  aisVersion?: string;
+}
 
 /**
  * Service class for managing JD Edwards AIS authentication and connection.
@@ -16,7 +27,8 @@ export class JDEConnectionService {
   private role: string;
   private httpsAgent: https.Agent;
   private token: string | null = null;
-  private axiosInstance: AxiosInstance;
+  // Use the specific type for the axios instance
+  private axiosInstance: ReturnType<typeof axios.create>;
 
   /**
    * Reads connection config from environment variables and sets up Axios instance.
@@ -35,8 +47,9 @@ export class JDEConnectionService {
 
     // Pre-configured Axios instance for all requests
     this.axiosInstance = axios.create({
+      // @ts-expect-error - httpsAgent is valid but TypeScript doesn't recognize it
       httpsAgent: this.httpsAgent,
-      baseURL: this.baseUrl
+      baseURL: this.baseUrl,
     });
   }
 
@@ -47,21 +60,25 @@ export class JDEConnectionService {
   async authenticate(): Promise<string> {
     try {
       // POST /v2/tokenrequest with credentials and environment details
-      const response = await this.axiosInstance.post('/v2/tokenrequest', {
-        username: this.username,
-        password: this.password,
-        environment: this.environment,
-        role: this.role
-      });
+      const response = await this.axiosInstance.post<TokenResponse>(
+        '/v2/tokenrequest',
+        {
+          username: this.username,
+          password: this.password,
+          environment: this.environment,
+          role: this.role,
+        },
+      );
 
       // Extract and store the session token
-      this.token = response.data?.userInfo?.token;
+      this.token = response.data?.userInfo?.token || null;
       if (!this.token) throw new Error('No token received');
 
       info('Authenticated successfully.');
       return this.token;
-    } catch (err: any) {
-      error('Authentication failed:', err?.message || err);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      error('Authentication failed:', errorMessage);
       throw err;
     }
   }
@@ -76,14 +93,21 @@ export class JDEConnectionService {
       if (!this.token) await this.authenticate();
 
       // GET /v2/defaultconfig with the stored token
-      const response = await this.axiosInstance.get('/v2/defaultconfig', {
-        headers: { Authorization: `Bearer ${this.token}` }
-      });
+      const response = await this.axiosInstance.get<AISConfigResponse>(
+        '/v2/defaultconfig',
+        {
+          headers: { Authorization: `Bearer ${this.token}` },
+        },
+      );
 
-      info('Connection validated. AIS Version:', response.data.aisVersion);
+      info(
+        'Connection validated. AIS Version:',
+        response.data?.aisVersion || 'unknown',
+      );
       return true;
-    } catch (err: any) {
-      error('Connection validation failed:', err?.message || err);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      error('Connection validation failed:', errorMessage);
       return false;
     }
   }
@@ -98,7 +122,7 @@ export class JDEConnectionService {
   /**
    * Returns the pre-configured Axios instance for API requests.
    */
-  getAxiosInstance(): AxiosInstance {
+  getAxiosInstance(): ReturnType<typeof axios.create> {
     return this.axiosInstance;
   }
 }

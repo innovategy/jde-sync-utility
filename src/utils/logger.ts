@@ -7,7 +7,7 @@
 export enum LogLevel {
   INFO = 'INFO',
   ERROR = 'ERROR',
-  DEBUG = 'DEBUG'
+  DEBUG = 'DEBUG',
 }
 
 /**
@@ -18,7 +18,7 @@ export enum LogLevel {
  */
 export function log(level: LogLevel, message: string, ...args: any[]) {
   const timestamp = new Date().toISOString();
-  // eslint-disable-next-line no-console
+
   console.log(`[${timestamp}] [${level}] ${message}`, ...args);
 }
 

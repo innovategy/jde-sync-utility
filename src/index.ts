@@ -7,11 +7,9 @@ import 'dotenv/config';
 import { info, error } from './utils/logger';
 // Import the JDE connection service (handles authentication, tokens, etc.)
 import { JDEConnectionService } from './services/JDEConnectionService';
-// Import the vendors module (fetches vendor data from JDE)
+// Import the vendors modules (fetches vendor data from JDE)
 import { getAllVendors } from './modules/vendors';
-import { getVendorFullProfile } from './modules/vendorProfile';
-// Import the field metadata utility (checks UDC/enum info for fields)
-import { checkFieldMetadata } from './utils/fieldMetadata';
+import { buildVendorsMaster } from './modules/vendorsMaster';
 
 /**
  * Main entry point for the JDE Sync Utility.
@@ -32,42 +30,26 @@ async function main() {
     process.exit(1);
   }
 
-  // Fetch all vendors (AT1 = 'V') from F0101 using the vendors module
-  const vendors = await getAllVendors();
-  info(`Fetched ${vendors.length} vendors. Fetching full profiles...`);
+  try {
+    // Fetch all vendors (AT1 = 'V') from F0101 using the vendors module
+    info('Fetching basic vendor details...');
+    await getAllVendors();
+    info('Basic vendor details saved to vendors.json');
 
-  // Log the first vendor object to determine field names
-  if (vendors.length > 0) {
-    info('Sample vendor object:', vendors[0]);
+    // Build comprehensive vendor master records
+    info('Building comprehensive vendor master records...');
+    await buildVendorsMaster();
+    info('Comprehensive vendor master records saved to vendors_master.json');
+  } catch (err) {
+    error(
+      'Error fetching vendor data:',
+      err instanceof Error ? err.message : String(err),
+    );
   }
-
-  // For each vendor, fetch full profile (mailing, phones, master, performance)
-  const fullProfiles = await Promise.all(
-    vendors.map(async (vendor) => {
-      // Try to find the address number field dynamically
-      let addressNumber: any = null;
-      for (const key of Object.keys(vendor)) {
-        if (key.toUpperCase().includes('AN8')) {
-          addressNumber = vendor[key];
-          break;
-        }
-      }
-      if (!addressNumber) return null;
-      try {
-        const profile = await getVendorFullProfile(addressNumber);
-        return { ...vendor, ...profile };
-      } catch (err) {
-        error(`Failed to fetch full profile for vendor ${addressNumber}:`, err?.message || err);
-        return { ...vendor, error: err?.message || err };
-      }
-    })
-  );
-  info('Vendor full profiles:', fullProfiles);
-
 }
 
 // Run the main function and catch any unhandled errors
-main().catch((err) => {
-  error('Fatal error:', err?.message || err);
+main().catch((err: unknown) => {
+  error('Fatal error:', err instanceof Error ? err.message : String(err));
   process.exit(1);
 });
